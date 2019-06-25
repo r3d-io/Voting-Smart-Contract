@@ -1,0 +1,19 @@
+{
+  "name": "voting-smart-contract",
+  "version": "1.0.0",
+  "description": "An ethereum and smart contract based voting application",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/r3d-io/Voting-Smart-Contract.git"
+  },
+  "author": "Anuj",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/r3d-io/Voting-Smart-Contract/issues"
+  },
+  "homepage": "https://github.com/r3d-io/Voting-Smart-Contract#readme"
+}
