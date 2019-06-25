@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/r3d-io/Voting-Smart-Contract/issues"
   },
-  "homepage": "https://github.com/r3d-io/Voting-Smart-Contract#readme"
+  "homepage": "https://github.com/r3d-io/Voting-Smart-Contract#readme",
+  "dependencies": {
+    "solc": "^0.5.3"
+  }
 }
