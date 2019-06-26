@@ -3,12 +3,13 @@ const inquirer = require('inquirer');
 const fs = require('fs');
 const HDWalletProvider = require('truffle-hdwallet-provider');
 const dotenv = require('dotenv');
+const EthereumTx = require('ethereumjs-tx').Transaction
 dotenv.config();
 
 const provider = new HDWalletProvider(
   process.env.MNEMONIC,
   'https://rinkeby.infura.io/v3/6d83b486e19548de928707c8336bf15b'
-  );
+);
 web3 = new Web3(provider)
 
 listOfCandidates = ['Rama', 'Nick', 'Jose']
@@ -45,13 +46,58 @@ async function voteForCandidate(candidateName) {
   console.log(`candidate Name ${candidateName} total vote after you ${totalVote}`)
 }
 
+async function privateKeyTransaction(privateKeyUser) {
+
+  let accounts = {
+    address: process.env.ADDRESS,
+    key: process.env.KEY
+  }
+
+  let gasPrice = await web3.eth.getGasPrice();
+  let gasPriceHex = web3.utils.numberToHex(gasPrice);
+  let block = web3.eth.getBlock("latest");
+  let gasLimitHex = await block.gasLimit
+  let nonce = web3.eth.getTransactionCount(accounts.address, "pending");
+  let nonceHex = web3.utils.toHex(nonce);
+
+  // let contractData = deployedContract.new.getData({
+  //   data: '0x' + bytecode
+  // });
+
+  deployedContract.options.data = '0x' + bytecode;
+
+  let rawTx = {
+    nonce: nonceHex,
+    gasPrice: gasPriceHex,
+    gasLimit: gasLimitHex,
+    data: deployedContract,
+    from: accounts.address
+  };
+
+  privateKey = new Buffer.from(accounts.key, 'hex')
+  let tx = new EthereumTx(rawTx);
+  tx.sign(privateKey);
+  let serializedTx = tx.serialize();
+  let receipt = null;
+  web3.eth.sendRawTransaction('0x' + serializedTx.toString('hex'), (err, hash) => {
+  if (err) { 
+      console.log(err); return; 
+  }
+  console.log('Contract creation tx: ' + hash);
+  });
+
+  receipt = await web3.eth.getTransactionReceipt(hash);
+  console.log('Contract address: ' + receipt.contractAddress);
+  return true;
+}
+
 async function main() {
   userInput = await inquirer.prompt([
     {
       type: 'list',
       name: 'options',
       message: 'Which operation do you want to perform?',
-      choices: ['Deploy contract', 'Vote'],
+      choices: ['Deploy contract', 'Vote', "Deploy using private key"],
     },
   ])
 
@@ -70,7 +116,19 @@ async function main() {
         },
       ])
       candidateName = userChoice.candidate
-      await voteForCandidate(candidateName)
+      voteForCandidate(candidateName)
+      break;
+    }
+    case "Deploy using private key": {
+      userChoice = await inquirer.prompt([
+        {
+          name: 'privateKey',
+          message: 'Enter your private key',
+          default: process.env.KEY
+        },
+      ])
+      let privateKey = userChoice.privateKey
+      privateKeyTransaction(privateKey)
       break;
     }
   }
