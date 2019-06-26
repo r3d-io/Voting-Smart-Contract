@@ -4,34 +4,44 @@ const fs = require('fs');
 web3 = new Web3("http://localhost:8545")
 
 listOfCandidates = ['Rama', 'Nick', 'Jose']
+abi = JSON.parse(fs.readFileSync('voting_sol_Voting.abi').toString())
+bytecode = fs.readFileSync('voting_sol_Voting.bin').toString()
+deployedContract = web3.eth.Contract(abi)
 
 async function deployContract() {
-  console.log('Deploying contract')
+  console.log('Deploying contract', [listOfCandidates.map(name => web3.utils.asciiToHex(name))])
   web3.eth.getAccounts(console.log)
-  abi = JSON.parse(fs.readFileSync('voting_sol_Voting.abi').toString())
-  bytecode = fs.readFileSync('voting_sol_Voting.bin').toString()
-  deployedContract = web3.eth.Contract(abi)
   deployedContract.options.data = bytecode;
-  deployedContract.deploy({
+  contract = await deployedContract.deploy({
     arguments: [listOfCandidates.map(name => web3.utils.asciiToHex(name))]
   }).send({
-    from: '0x302c8b1f4b86fdaf26f7a7aa3481ee84e99a8057',
+    from: "0x93a4f7C3E6BEFF298E7B21C2F0E151776AC2D255",
     gas: 1500000,
     gasPrice: web3.utils.toWei('0.00003', 'ether')
-  }).then((newContractInstance) => {
-    console.log(newContractInstance.options.address)
-  });
+  })
+  console.log('Contract deployed to:', contract.address);
+  console.log('Contract deployed to:', contract.options.address);
+
+  return contract;
 }
 
-function voteForCandidate(candidateName) {
-  account = web3.eth.accounts[0]
+async function voteForCandidate(candidateName) {
+  account = await web3.eth.getAccounts();
   console.log(candidateName);
-  contract.methods.voteForCandidate(web3.utils.asciiToHex(candidateName)).send({ from: account }).then((f) => {
-    candidates[candidateName];
-    contract.methods.totalVotesFor(web3.utils.asciiToHex(candidateName)).call().then((totalVote) => {
-      console.log(`candidate Name ${candidateName} total vote ${totalVote}`)
-    })
-  })
+  deployedContract.options.address = "0xa2eeabbcadf2d994fabdfeb54ee16c112e83f6ed";
+
+  let totalVote = await deployedContract.methods.totalVotesFor(web3.utils.asciiToHex(candidateName)).call()
+  console.log(`candidate Name ${candidateName} total vote ${totalVote}`)
+
+  console.log('1')
+  let r = deployedContract.methods.voteForCandidate(web3.utils.asciiToHex(candidateName)).send({ from: account[5] })
+  console.log('2')
+  console.log(r)
+  console.log('3')
+  let p = await r
+  console.log(p)
+  console.log('4')
+  console.log(candidates[candidateName])
 }
 
 async function main() {
@@ -59,7 +69,7 @@ async function main() {
         },
       ])
       candidateName = userChoice.candidate
-      voteForCandidate(candidateName)
+      await voteForCandidate(candidateName)
       break;
     }
   }
