@@ -6,7 +6,7 @@ web3 = new Web3("http://localhost:8545")
 listOfCandidates = ['Rama', 'Nick', 'Jose']
 abi = JSON.parse(fs.readFileSync('voting_sol_Voting.abi').toString())
 bytecode = fs.readFileSync('voting_sol_Voting.bin').toString()
-deployedContract = web3.eth.Contract(abi)
+deployedContract = new web3.eth.Contract(abi)
 
 async function deployContract() {
   console.log('Deploying contract', [listOfCandidates.map(name => web3.utils.asciiToHex(name))])
@@ -19,9 +19,7 @@ async function deployContract() {
     gas: 1500000,
     gasPrice: web3.utils.toWei('0.00003', 'ether')
   })
-  console.log('Contract deployed to:', contract.address);
   console.log('Contract deployed to:', contract.options.address);
-
   return contract;
 }
 
@@ -32,16 +30,10 @@ async function voteForCandidate(candidateName) {
 
   let totalVote = await deployedContract.methods.totalVotesFor(web3.utils.asciiToHex(candidateName)).call()
   console.log(`candidate Name ${candidateName} total vote ${totalVote}`)
-
-  console.log('1')
-  let r = deployedContract.methods.voteForCandidate(web3.utils.asciiToHex(candidateName)).send({ from: account[5] })
-  console.log('2')
-  console.log(r)
-  console.log('3')
-  let p = await r
-  console.log(p)
-  console.log('4')
-  console.log(candidates[candidateName])
+  let response = await deployedContract.methods.voteForCandidate(web3.utils.asciiToHex(candidateName)).send({ from: account[5] })
+  totalVote = await deployedContract.methods.totalVotesFor(web3.utils.asciiToHex(candidateName)).call()
+  console.log(response)
+  console.log(`candidate Name ${candidateName} total vote after you ${totalVote}`)
 }
 
 async function main() {
