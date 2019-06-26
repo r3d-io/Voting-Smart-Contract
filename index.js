@@ -3,28 +3,28 @@ const inquirer = require('inquirer')
 const fs = require('fs');
 web3 = new Web3("http://localhost:8545")
 
-bytecode = fs.readFileSync('voting_sol_Voting.bin').toString()
-abi = JSON.parse(fs.readFileSync('voting_sol_Voting.abi').toString())
-deployedContract = new web3.eth.Contract(abi)
 listOfCandidates = ['Rama', 'Nick', 'Jose']
 
-function deployContract() {
+async function deployContract() {
+  console.log('Deploying contract')
+  web3.eth.getAccounts(console.log)
+  abi = JSON.parse(fs.readFileSync('voting_sol_Voting.abi').toString())
+  bytecode = fs.readFileSync('voting_sol_Voting.bin').toString()
+  deployedContract = web3.eth.Contract(abi)
+  deployedContract.options.data = bytecode;
   deployedContract.deploy({
-    data: bytecode,
     arguments: [listOfCandidates.map(name => web3.utils.asciiToHex(name))]
   }).send({
-    from: '0x27c201c151483f6d1157bdc7da8ef9f35e7bd327',
+    from: '0x302c8b1f4b86fdaf26f7a7aa3481ee84e99a8057',
     gas: 1500000,
-    gasPrice: web3.eth.getGasPrice()
-    // gasPrice: web3.utils.toWei('0.00003', 'ether')
+    gasPrice: web3.utils.toWei('0.00003', 'ether')
   }).then((newContractInstance) => {
-    deployedContract.options.address = newContractInstance.options.address
     console.log(newContractInstance.options.address)
   });
 }
 
 function voteForCandidate(candidateName) {
-  account = "0xa52b3591cdef31daa4e247a185067f453d399436"
+  account = web3.eth.accounts[0]
   console.log(candidateName);
   contract.methods.voteForCandidate(web3.utils.asciiToHex(candidateName)).send({ from: account }).then((f) => {
     candidates[candidateName];
@@ -34,7 +34,7 @@ function voteForCandidate(candidateName) {
   })
 }
 
-async function  main() {
+async function main() {
   userInput = await inquirer.prompt([
     {
       type: 'list',
@@ -66,3 +66,4 @@ async function  main() {
 }
 
 main()
+
