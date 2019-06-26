@@ -18,9 +18,11 @@
   },
   "homepage": "https://github.com/r3d-io/Voting-Smart-Contract#readme",
   "dependencies": {
+    "dotenv": "^8.0.0",
     "fs": "0.0.1-security",
     "inquirer": "^6.4.1",
     "solc": "^0.5.3",
+    "truffle-hdwallet-provider": "^1.0.11",
     "web3": "^1.0.0-beta.37"
   }
 }
