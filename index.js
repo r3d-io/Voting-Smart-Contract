@@ -65,11 +65,6 @@ async function privateKeyTransaction(privateKeyUser) {
   let nonce = web3.eth.getTransactionCount(accounts.address, "pending");
   let nonceHex = web3.toHex(nonce);
 
-  // contract = await deployedContract.deploy({
-  //   data: '0x' + bytecode,
-  //   arguments: [listOfCandidates.map(name => web3.utils.asciiToHex(name))]
-  // })
-  
   contract = deployedContract.new.getData([listOfCandidates.map(name => web3.toHex(name))],{
     data: '0x' + bytecode
   });
@@ -83,10 +78,12 @@ async function privateKeyTransaction(privateKeyUser) {
     to: "0xC6fD13A2A1294e5b0302451e6C84fC69E771cec5",
     chainId: 4
   };
+
   let tx = new EthereumTx(rawTx)
   privateKey = new Buffer.from(accounts.key, 'hex')
   tx.sign(privateKey);
   let serializedTx = tx.serialize();
+
   web3.eth.sendRawTransaction('0x' + serializedTx.toString('hex'), (err, hash) => {
     if (!err) { 
       console.log('Contract creation tx: ' + hash);
