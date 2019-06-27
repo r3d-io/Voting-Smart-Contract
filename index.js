@@ -36,7 +36,7 @@ async function deployContract() {
 async function voteForCandidate(candidateName) {
   account = await web3.eth.getAccounts();
   console.log(candidateName);
-  deployedContract.options.address = "0xC6fD13A2A1294e5b0302451e6C84fC69E771cec5";
+  deployedContract.options.address = process.env.CONTRACT_ADDRESS;
 
   let totalVote = await deployedContract.methods.totalVotesFor(web3.utils.asciiToHex(candidateName)).call()
   console.log(`candidate Name ${candidateName} total vote ${totalVote}`)
@@ -49,25 +49,26 @@ async function voteForCandidate(candidateName) {
 async function privateKeyTransaction(privateKeyUser) {
 
   let deployedContract = web3.eth.contract(abi)
-  deployedContract.at("0xC6fD13A2A1294e5b0302451e6C84fC69E771cec5");
-  
+  deployedContract.at(process.env.CONTRACT_ADDRESS);
+
   let accounts = {
     address: process.env.ADDRESS,
     key: process.env.KEY
   }
   testnet = `https://rinkeby.infura.io/${process.env.INFURA_ACCESS_TOKEN}`
-  web3 = new Web3( new Web3.providers.HttpProvider(testnet) )
+  web3 = new Web3(new Web3.providers.HttpProvider(testnet))
 
-  let gasPrice = await web3.eth.getGasPrice( function() { });
+  let gasPrice = await web3.eth.getGasPrice(function () { });
   let gasPriceHex = web3.toHex(gasPrice);
   let block = web3.eth.getBlock("latest");
   let gasLimitHex = await block.gasLimit
   let nonce = web3.eth.getTransactionCount(accounts.address);
   let nonceHex = web3.toHex(nonce);
 
-  contract = deployedContract.new.getData([listOfCandidates.map(name => web3.toHex(name))],{
+  contract = deployedContract.new.getData([listOfCandidates.map(name => web3.toHex(name))], {
     data: '0x' + bytecode
   });
+
 
   let rawTx = {
     nonce: nonceHex,
@@ -75,7 +76,7 @@ async function privateKeyTransaction(privateKeyUser) {
     gasLimit: gasLimitHex,
     data: contract,
     from: accounts.address,
-    to: "0xC6fD13A2A1294e5b0302451e6C84fC69E771cec5",
+    to: process.env.CONTRACT_ADDRESS,
     chainId: 4
   };
 
@@ -84,15 +85,21 @@ async function privateKeyTransaction(privateKeyUser) {
   tx.sign(privateKey);
   let serializedTx = tx.serialize();
 
+  var result = await web3.eth.estimateGas({
+    to: process.env.CONTRACT_ADDRESS,
+    data: contract,
+  });
+  console.log(result);
+
   web3.eth.sendRawTransaction('0x' + serializedTx.toString('hex'), (err, hash) => {
-    if (!err) { 
+    if (!err) {
       console.log('Contract creation tx: ' + hash);
       let receipt = web3.eth.getTransactionReceipt(hash);
       console.log('Contract address: ' + receipt.contractAddress);
     }
-    else{
+    else {
       console.log(err); return;
-    } 
+    }
   });
 
   return true;
