@@ -3,7 +3,7 @@ const inquirer = require('inquirer');
 const fs = require('fs');
 const HDWalletProvider = require('truffle-hdwallet-provider');
 const dotenv = require('dotenv');
-var Tx = require('ethereumjs-tx');
+var EthereumTx = require('ethereumjs-tx').Transaction;
 dotenv.config();
 
 const provider = new HDWalletProvider(
@@ -15,9 +15,9 @@ web3 = new Web3(provider)
 listOfCandidates = ['Rama', 'Nick', 'Jose']
 abi = JSON.parse(fs.readFileSync('voting_sol_Voting.abi').toString())
 bytecode = fs.readFileSync('voting_sol_Voting.bin').toString()
-deployedContract = new web3.eth.Contract(abi)
 
 async function deployContract() {
+  deployedContract = new web3.eth.Contract(abi)
   account = await web3.eth.getAccounts();
   console.log('Deploying contract', [listOfCandidates.map(name => web3.utils.asciiToHex(name))])
   web3.eth.getAccounts(console.log)
@@ -48,6 +48,9 @@ async function voteForCandidate(candidateName) {
 
 async function privateKeyTransaction(privateKeyUser) {
 
+  let deployedContract = web3.eth.contract(abi)
+  deployedContract.at("0xC6fD13A2A1294e5b0302451e6C84fC69E771cec5");
+  
   let accounts = {
     address: process.env.ADDRESS,
     key: process.env.KEY
@@ -55,20 +58,19 @@ async function privateKeyTransaction(privateKeyUser) {
   testnet = `https://rinkeby.infura.io/${process.env.INFURA_ACCESS_TOKEN}`
   web3 = new Web3( new Web3.providers.HttpProvider(testnet) )
 
-  let gasPrice = await web3.eth.getGasPrice();
-  let gasPriceHex = web3.utils.numberToHex(gasPrice);
+  let gasPrice = await web3.eth.getGasPrice( function() { });
+  let gasPriceHex = web3.toHex(gasPrice);
   let block = web3.eth.getBlock("latest");
   let gasLimitHex = await block.gasLimit
   let nonce = web3.eth.getTransactionCount(accounts.address, "pending");
-  let nonceHex = web3.utils.toHex(nonce);
+  let nonceHex = web3.toHex(nonce);
 
   // contract = await deployedContract.deploy({
   //   data: '0x' + bytecode,
   //   arguments: [listOfCandidates.map(name => web3.utils.asciiToHex(name))]
   // })
   
-  contract = deployedContract.new.getData({
-    arguments: [listOfCandidates.map(name => web3.utils.asciiToHex(name))],
+  contract = deployedContract.new.getData([listOfCandidates.map(name => web3.toHex(name))],{
     data: '0x' + bytecode
   });
 
@@ -78,25 +80,27 @@ async function privateKeyTransaction(privateKeyUser) {
     gasLimit: gasLimitHex,
     data: contract,
     from: accounts.address,
-    chainId: 4 
+    to: "0xC6fD13A2A1294e5b0302451e6C84fC69E771cec5",
+    chainId: 4
   };
-
-  let tx = new EthereumTx(rawTx).catch((error) => console.log(error));
+  let tx = new EthereumTx(rawTx)
   privateKey = new Buffer.from(accounts.key, 'hex')
   tx.sign(privateKey);
   let serializedTx = tx.serialize();
-
   web3.eth.sendRawTransaction('0x' + serializedTx.toString('hex'), (err, hash) => {
-  if (err) { 
-      console.log(err); return; 
-  }
-  console.log('Contract creation tx: ' + hash);
+    if (!err) { 
+      console.log('Contract creation tx: ' + hash);
+      let receipt = web3.eth.getTransactionReceipt(hash);
+      console.log('Contract address: ' + receipt.contractAddress);
+    }
+    else{
+      console.log(err); return;
+    } 
   });
 
-  let receipt = await web3.eth.getTransactionReceipt(hash);
-  console.log('Contract address: ' + receipt.contractAddress);
   return true;
 }
+
 
 async function main() {
   userInput = await inquirer.prompt([
