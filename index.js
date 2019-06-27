@@ -73,6 +73,7 @@ async function privateKeyTransaction(privateKeyUser) {
     gasLimit: gasLimitHex,
     data: contract,
     from: accounts.address,
+    to: "0xC6fD13A2A1294e5b0302451e6C84fC69E771cec5",
     chainId: 4 
   };
 
