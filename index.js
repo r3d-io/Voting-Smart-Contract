@@ -62,18 +62,22 @@ async function privateKeyTransaction(privateKeyUser) {
   let nonce = web3.eth.getTransactionCount(accounts.address, "pending");
   let nonceHex = web3.utils.toHex(nonce);
 
-  contract = await deployedContract.deploy({
-    data: '0x' + bytecode,
-    arguments: [listOfCandidates.map(name => web3.utils.asciiToHex(name))]
-  })
+  // contract = await deployedContract.deploy({
+  //   data: '0x' + bytecode,
+  //   arguments: [listOfCandidates.map(name => web3.utils.asciiToHex(name))]
+  // })
   
+  contract = deployedContract.new.getData({
+    arguments: [listOfCandidates.map(name => web3.utils.asciiToHex(name))],
+    data: '0x' + bytecode
+  });
+
   let rawTx = {
     nonce: nonceHex,
     gasPrice: gasPriceHex,
     gasLimit: gasLimitHex,
     data: contract,
     from: accounts.address,
-    to: "0xC6fD13A2A1294e5b0302451e6C84fC69E771cec5",
     chainId: 4 
   };
 
