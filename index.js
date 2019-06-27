@@ -3,7 +3,7 @@ const inquirer = require('inquirer');
 const fs = require('fs');
 const HDWalletProvider = require('truffle-hdwallet-provider');
 const dotenv = require('dotenv');
-const EthereumTx = require('ethereumjs-tx').Transaction
+var Tx = require('ethereumjs-tx');
 dotenv.config();
 
 const provider = new HDWalletProvider(
@@ -52,6 +52,8 @@ async function privateKeyTransaction(privateKeyUser) {
     address: process.env.ADDRESS,
     key: process.env.KEY
   }
+  testnet = `https://rinkeby.infura.io/${process.env.INFURA_ACCESS_TOKEN}`
+  web3 = new Web3( new Web3.providers.HttpProvider(testnet) )
 
   let gasPrice = await web3.eth.getGasPrice();
   let gasPriceHex = web3.utils.numberToHex(gasPrice);
@@ -60,25 +62,25 @@ async function privateKeyTransaction(privateKeyUser) {
   let nonce = web3.eth.getTransactionCount(accounts.address, "pending");
   let nonceHex = web3.utils.toHex(nonce);
 
-  // let contractData = deployedContract.new.getData({
-  //   data: '0x' + bytecode
-  // });
-
-  deployedContract.options.data = '0x' + bytecode;
-
+  contract = await deployedContract.deploy({
+    data: '0x' + bytecode,
+    arguments: [listOfCandidates.map(name => web3.utils.asciiToHex(name))]
+  })
+  
   let rawTx = {
     nonce: nonceHex,
     gasPrice: gasPriceHex,
     gasLimit: gasLimitHex,
-    data: deployedContract,
-    from: accounts.address
+    data: contract,
+    from: accounts.address,
+    chainId: 4 
   };
 
+  let tx = new EthereumTx(rawTx).catch((error) => console.log(error));
   privateKey = new Buffer.from(accounts.key, 'hex')
-  let tx = new EthereumTx(rawTx);
   tx.sign(privateKey);
   let serializedTx = tx.serialize();
-  let receipt = null;
+
   web3.eth.sendRawTransaction('0x' + serializedTx.toString('hex'), (err, hash) => {
   if (err) { 
       console.log(err); return; 
@@ -86,7 +88,7 @@ async function privateKeyTransaction(privateKeyUser) {
   console.log('Contract creation tx: ' + hash);
   });
 
-  receipt = await web3.eth.getTransactionReceipt(hash);
+  let receipt = await web3.eth.getTransactionReceipt(hash);
   console.log('Contract address: ' + receipt.contractAddress);
   return true;
 }
