@@ -62,7 +62,7 @@ async function privateKeyTransaction(privateKeyUser) {
   let gasPriceHex = web3.toHex(gasPrice);
   let block = web3.eth.getBlock("latest");
   let gasLimitHex = await block.gasLimit
-  let nonce = web3.eth.getTransactionCount(accounts.address, "pending");
+  let nonce = web3.eth.getTransactionCount(accounts.address);
   let nonceHex = web3.toHex(nonce);
 
   contract = deployedContract.new.getData([listOfCandidates.map(name => web3.toHex(name))],{
