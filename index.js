@@ -67,10 +67,10 @@ async function privateKeyTransaction(privateKeyUser) {
   contractData = deployedContract.new.getData({
     data: '0x' + bytecode
   });
-  if (broadcastTransaction(contractData))
-    console.log('Transaction broadcast succesfull')
-  else
-    console.log('Cannot proceed transaction')
+  response = broadcastTransaction(contractData)
+  console.log(response)
+  let receipt = await web3.eth.getTransactionReceipt(response);
+  console.log('Contract address: ' + receipt.contractAddress);
 }
 
 function getGasPrice() {
@@ -111,11 +111,11 @@ async function broadcastTransaction(contract, gasLimit) {
   web3.eth.sendRawTransaction(finalTransaction, (err, hash) => {
     if (!err) {
       console.log('Contract creation tx: ' + hash);
-      return true;
+      return hash;
     }
     else {
       console.log(err);
-      return false;
+      return error;
     }
   });
 
