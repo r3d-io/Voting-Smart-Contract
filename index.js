@@ -1,7 +1,6 @@
 const Web3 = require('web3');
 const inquirer = require('inquirer');
 const fs = require('fs');
-const HDWalletProvider = require('truffle-hdwallet-provider');
 const dotenv = require('dotenv');
 const solc = require('solc')
 var EthereumTx = require('ethereumjs-tx').Transaction;
@@ -12,79 +11,58 @@ let accounts = {
   key: process.env.KEY
 }
 
+testnet = `https://rinkeby.infura.io/${process.env.INFURA_ACCESS_TOKEN}`
+web3 = new Web3(new Web3.providers.HttpProvider(testnet))
+
+let source = fs.readFileSync('voting.sol', 'utf8');
+let compiledContract = solc.compile(source, 1);
+let abi = compiledContract.contracts[':Voting'].interface;
+let bytecode = compiledContract.contracts[':Voting'].bytecode;
+let listOfCandidates = ['Rama', 'Nick', 'Jose']
+
+let deployedContract = web3.eth.contract(JSON.parse(abi));
+
 async function voteForCandidate(candidateName) {
-  const provider = new HDWalletProvider(
-    process.env.MNEMONIC,
-    'https://rinkeby.infura.io/v3/6d83b486e19548de928707c8336bf15b'
-  );
-  web3 = new Web3(provider)
-
-  account = await web3.eth.getAccounts();
   console.log(candidateName);
-  deployedContract.options.address = process.env.CONTRACT_ADDRESS;
+  contractAddress = "0x7e6480Fe2C1c14555b4dBfF11Ba474E24e6f0580"
+  web3.eth.defaultAccount = accounts.address;
 
-  let totalVote = await deployedContract.methods.totalVotesFor(web3.utils.asciiToHex(candidateName)).call()
+  contract = deployedContract.at(contractAddress);
+  let totalVote = contract.totalVotesFor.call(web3.toHex(candidateName))
+  let contractData = contract.voteForCandidate.getData(web3.toHex(candidateName))
   console.log(`candidate Name ${candidateName} total vote ${totalVote}`)
-  let response = await deployedContract.methods.voteForCandidate(web3.utils.asciiToHex(candidateName)).send({ from: account[0] })
-  totalVote = await deployedContract.methods.totalVotesFor(web3.utils.asciiToHex(candidateName)).call()
-  console.log(response)
+
+  let gasEstimate = web3.eth.estimateGas({
+    data: contractData,
+    to: contractAddress
+  });
+
+  gasEstimate = Math.round(gasEstimate * 2)
+  console.log(`Hex ${contractData} Estimated gas ${gasEstimate}`)
+  hash = await broadcastTransaction(contractData, gasEstimate, contractAddress)
+  totalVote = contract.totalVotesFor.call(web3.toHex(candidateName))
+
   console.log(`candidate Name ${candidateName} total vote after you ${totalVote}`)
 }
 
 async function privateKeyTransaction(privateKeyUser) {
 
-  testnet = `https://rinkeby.infura.io/${process.env.INFURA_ACCESS_TOKEN}`
-  web3 = new Web3(new Web3.providers.HttpProvider(testnet))
-
-  let source = fs.readFileSync('voting.sol', 'utf8');
-  let compiledContract = solc.compile(source, 1);
-  let abi = compiledContract.contracts[':Voting'].interface;
-  let bytecode = compiledContract.contracts[':Voting'].bytecode;
-  listOfCandidates = ['Rama', 'Nick', 'Jose']
-  // abi = JSON.parse(fs.readFileSync('voting_sol_Voting.abi').toString())
-  // bytecode = fs.readFileSync('voting_sol_Voting.bin').toString()
-
   let gasEstimate = web3.eth.estimateGas({ data: '0x' + bytecode });
-  console.log(gasEstimate)
 
-  let deployedContract = web3.eth.contract(JSON.parse(abi));
-  // var contractData = deployedContract.new( listOfCandidates.map(name => web3.toHex(name)), {
-  //   from: accounts.address,
-  //   data: bytecode,
-  //   gas: gasEstimate
-  // }, function (err, myContract) {
-  //   if (!err) {
-  //     if (!myContract.address) {
-  //       console.log(myContract.transactionHash)
-  //     } else {
-  //       console.log(myContract.address)
-  //     }
-  //   }
-  //   else{
-  //     console.log(err)
-  //   }
-  // });
-  contractData = deployedContract.new.getData({
+  contractData = deployedContract.new.getData(listOfCandidates.map(name => web3.toHex(name)), {
     data: '0x' + bytecode
   });
-  response = broadcastTransaction(contractData)
-  console.log(response)
-  let receipt = await web3.eth.getTransactionReceipt(response);
-  console.log('Contract address: ' + receipt.contractAddress);
+
+  gasEstimate = Math.round(gasEstimate * 2)
+  hash = await broadcastTransaction(contractData, gasEstimate)
+  if (hash != undefined) {
+    console.log(hash)
+    let receipt = await web3.eth.getTransactionReceipt(hash);
+    console.log('Contract address: ' + receipt.contractAddress);
+  }
 }
 
-function getGasPrice() {
-  return new Promise((resolve, reject) => {
-    web3.eth.getGasPrice(function (error, response) {
-      if (error){
-        reject(console.log(error))
-      }
-      resolve(response.c)
-    })
-  })
-}
-
-async function broadcastTransaction(contract, gasLimit) {
+async function broadcastTransaction(contract, gasLimit, contractAddress) {
 
   let gasPrice = await getGasPrice()
   let gasPriceHex = web3.toHex(gasPrice[0]);
@@ -101,6 +79,9 @@ async function broadcastTransaction(contract, gasLimit) {
     chainId: 4
   };
 
+  if (contractAddress != null || contractAddress != undefined)
+    rawTx.to = contractAddress
+
   let tx = new EthereumTx(rawTx, { chain: 'rinkeby', hardfork: 'petersburg' })
   privateKey = new Buffer.from(accounts.key, 'hex')
   tx.sign(privateKey);
@@ -108,19 +89,28 @@ async function broadcastTransaction(contract, gasLimit) {
 
   finalTransaction = '0x' + serializedTx.toString('hex')
 
-  web3.eth.sendRawTransaction(finalTransaction, (err, hash) => {
-    if (!err) {
+  web3.eth.sendRawTransaction(finalTransaction, (error, hash) => {
+    if (!error) {
       console.log('Contract creation tx: ' + hash);
       return hash;
     }
     else {
-      console.log(err);
-      return error;
+      console.log(error);
+      return false;
     }
   });
-
 }
 
+function getGasPrice() {
+  return new Promise((resolve, reject) => {
+    web3.eth.getGasPrice(function (error, response) {
+      if (error) {
+        reject(console.log(error))
+      }
+      resolve(response.c)
+    })
+  })
+}
 
 async function main() {
   userInput = await inquirer.prompt([
@@ -128,15 +118,12 @@ async function main() {
       type: 'list',
       name: 'options',
       message: 'Which operation do you want to perform?',
-      choices: ['Deploy contract', 'Vote', "Deploy using private key"],
+      choices: ['Deploy using private key', 'Vote',],
     },
   ])
 
   switch (userInput.options) {
-    case "Deploy contract": {
-      deployContract()
-      break;
-    }
+
     case "Vote": {
       userChoice = await inquirer.prompt([
         {
