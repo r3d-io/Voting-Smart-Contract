@@ -22,7 +22,7 @@
     "ethereumjs-tx": "^2.0.0",
     "fs": "0.0.1-security",
     "inquirer": "^6.4.1",
-    "solc": "^0.5.3",
+    "solc": "^0.4.25",
     "truffle-hdwallet-provider": "^1.0.11",
     "web3": "^0.20.7"
   }

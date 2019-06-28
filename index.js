@@ -3,37 +3,22 @@ const inquirer = require('inquirer');
 const fs = require('fs');
 const HDWalletProvider = require('truffle-hdwallet-provider');
 const dotenv = require('dotenv');
+const solc = require('solc')
 var EthereumTx = require('ethereumjs-tx').Transaction;
 dotenv.config();
 
-const provider = new HDWalletProvider(
-  process.env.MNEMONIC,
-  'https://rinkeby.infura.io/v3/6d83b486e19548de928707c8336bf15b'
-);
-web3 = new Web3(provider)
-
-listOfCandidates = ['Rama', 'Nick', 'Jose']
-abi = JSON.parse(fs.readFileSync('voting_sol_Voting.abi').toString())
-bytecode = fs.readFileSync('voting_sol_Voting.bin').toString()
-
-async function deployContract() {
-  deployedContract = new web3.eth.Contract(abi)
-  account = await web3.eth.getAccounts();
-  console.log('Deploying contract', [listOfCandidates.map(name => web3.utils.asciiToHex(name))])
-  web3.eth.getAccounts(console.log)
-  deployedContract.options.data = '0x' + bytecode;
-  contract = await deployedContract.deploy({
-    arguments: [listOfCandidates.map(name => web3.utils.asciiToHex(name))]
-  }).send({
-    from: account[0],
-    gas: 1000000,
-    // gasPrice: web3.utils.toWei('0.00003', 'ether')
-  })
-  console.log('Contract deployed to:', contract.options.address);
-  return contract;
+let accounts = {
+  address: process.env.ADDRESS,
+  key: process.env.KEY
 }
 
 async function voteForCandidate(candidateName) {
+  const provider = new HDWalletProvider(
+    process.env.MNEMONIC,
+    'https://rinkeby.infura.io/v3/6d83b486e19548de928707c8336bf15b'
+  );
+  web3 = new Web3(provider)
+
   account = await web3.eth.getAccounts();
   console.log(candidateName);
   deployedContract.options.address = process.env.CONTRACT_ADDRESS;
@@ -48,27 +33,64 @@ async function voteForCandidate(candidateName) {
 
 async function privateKeyTransaction(privateKeyUser) {
 
-  let deployedContract = web3.eth.contract(abi)
-  deployedContract.at(process.env.CONTRACT_ADDRESS);
-
-  let accounts = {
-    address: process.env.ADDRESS,
-    key: process.env.KEY
-  }
   testnet = `https://rinkeby.infura.io/${process.env.INFURA_ACCESS_TOKEN}`
   web3 = new Web3(new Web3.providers.HttpProvider(testnet))
 
-  let gasPrice = await web3.eth.getGasPrice(function () { });
-  let gasPriceHex = web3.toHex(gasPrice);
-  let block = web3.eth.getBlock("latest");
-  let gasLimitHex = await block.gasLimit
-  let nonce = web3.eth.getTransactionCount(accounts.address);
-  let nonceHex = web3.toHex(nonce);
+  let source = fs.readFileSync('voting.sol', 'utf8');
+  let compiledContract = solc.compile(source, 1);
+  let abi = compiledContract.contracts[':Voting'].interface;
+  let bytecode = compiledContract.contracts[':Voting'].bytecode;
+  listOfCandidates = ['Rama', 'Nick', 'Jose']
+  // abi = JSON.parse(fs.readFileSync('voting_sol_Voting.abi').toString())
+  // bytecode = fs.readFileSync('voting_sol_Voting.bin').toString()
 
-  contract = deployedContract.new.getData([listOfCandidates.map(name => web3.toHex(name))], {
+  let gasEstimate = web3.eth.estimateGas({ data: '0x' + bytecode });
+  console.log(gasEstimate)
+
+  let deployedContract = web3.eth.contract(JSON.parse(abi));
+  // var contractData = deployedContract.new( listOfCandidates.map(name => web3.toHex(name)), {
+  //   from: accounts.address,
+  //   data: bytecode,
+  //   gas: gasEstimate
+  // }, function (err, myContract) {
+  //   if (!err) {
+  //     if (!myContract.address) {
+  //       console.log(myContract.transactionHash)
+  //     } else {
+  //       console.log(myContract.address)
+  //     }
+  //   }
+  //   else{
+  //     console.log(err)
+  //   }
+  // });
+  contractData = deployedContract.new.getData({
     data: '0x' + bytecode
   });
+  if (broadcastTransaction(contractData))
+    console.log('Transaction broadcast succesfull')
+  else
+    console.log('Cannot proceed transaction')
+}
 
+function getGasPrice() {
+  return new Promise((resolve, reject) => {
+    web3.eth.getGasPrice(function (error, response) {
+      if (error){
+        reject(console.log(error))
+      }
+      resolve(response.c)
+    })
+  })
+}
+
+async function broadcastTransaction(contract, gasLimit) {
+
+  let gasPrice = await getGasPrice()
+  let gasPriceHex = web3.toHex(gasPrice[0]);
+  let gasLimitHex = web3.toHex(gasLimit);
+  let nonce = web3.eth.getTransactionCount(accounts.address);
+  let nonceHex = web3.toHex(nonce);
 
   let rawTx = {
     nonce: nonceHex,
@@ -76,33 +98,27 @@ async function privateKeyTransaction(privateKeyUser) {
     gasLimit: gasLimitHex,
     data: contract,
     from: accounts.address,
-    to: process.env.CONTRACT_ADDRESS,
     chainId: 4
   };
 
-  let tx = new EthereumTx(rawTx)
+  let tx = new EthereumTx(rawTx, { chain: 'rinkeby', hardfork: 'petersburg' })
   privateKey = new Buffer.from(accounts.key, 'hex')
   tx.sign(privateKey);
   let serializedTx = tx.serialize();
 
-  var result = await web3.eth.estimateGas({
-    to: process.env.CONTRACT_ADDRESS,
-    data: contract,
-  });
-  console.log(result);
+  finalTransaction = '0x' + serializedTx.toString('hex')
 
-  web3.eth.sendRawTransaction('0x' + serializedTx.toString('hex'), (err, hash) => {
+  web3.eth.sendRawTransaction(finalTransaction, (err, hash) => {
     if (!err) {
       console.log('Contract creation tx: ' + hash);
-      let receipt = web3.eth.getTransactionReceipt(hash);
-      console.log('Contract address: ' + receipt.contractAddress);
+      return true;
     }
     else {
-      console.log(err); return;
+      console.log(err);
+      return false;
     }
   });
 
-  return true;
 }
 
 
