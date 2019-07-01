@@ -55,50 +55,58 @@ async function privateKeyTransaction(privateKeyUser) {
 
   gasEstimate = Math.round(gasEstimate * 2)
   hash = await broadcastTransaction(contractData, gasEstimate)
-  if (hash != undefined) {
-    console.log(hash)
-    let receipt = await web3.eth.getTransactionReceipt(hash);
-    console.log('Contract address: ' + receipt.contractAddress);
-  }
+  let interval = setInterval(async function () {
+    if (hash != null && hash != undefined) {
+      let receipt = await web3.eth.getTransactionReceipt(hash);
+      if (receipt != undefined && receipt != null){
+        console.log('Contract address: ' + receipt.contractAddress);
+        clearInterval(interval);
+      }
+      else
+        console.log('Transaction not confirmed')  
+    }
+  }, 2000);
 }
 
 async function broadcastTransaction(contract, gasLimit, contractAddress) {
+  return new Promise(async (resolve, reject) => {
 
-  let gasPrice = await getGasPrice()
-  let gasPriceHex = web3.toHex(gasPrice[0]);
-  let gasLimitHex = web3.toHex(gasLimit);
-  let nonce = web3.eth.getTransactionCount(accounts.address);
-  let nonceHex = web3.toHex(nonce);
+    let gasPrice = await getGasPrice()
+    let gasPriceHex = web3.toHex(gasPrice[0]);
+    let gasLimitHex = web3.toHex(gasLimit);
+    let nonce = web3.eth.getTransactionCount(accounts.address);
+    let nonceHex = web3.toHex(nonce);
 
-  let rawTx = {
-    nonce: nonceHex,
-    gasPrice: gasPriceHex,
-    gasLimit: gasLimitHex,
-    data: contract,
-    from: accounts.address,
-    chainId: 4
-  };
+    let rawTx = {
+      nonce: nonceHex,
+      gasPrice: gasPriceHex,
+      gasLimit: gasLimitHex,
+      data: contract,
+      from: accounts.address,
+      chainId: 4
+    };
 
-  if (contractAddress != null || contractAddress != undefined)
-    rawTx.to = contractAddress
+    if (contractAddress != null || contractAddress != undefined)
+      rawTx.to = contractAddress
 
-  let tx = new EthereumTx(rawTx, { chain: 'rinkeby', hardfork: 'petersburg' })
-  privateKey = new Buffer.from(accounts.key, 'hex')
-  tx.sign(privateKey);
-  let serializedTx = tx.serialize();
+    let tx = new EthereumTx(rawTx, { chain: 'rinkeby', hardfork: 'petersburg' })
+    privateKey = new Buffer.from(accounts.key, 'hex')
+    tx.sign(privateKey);
+    let serializedTx = tx.serialize();
 
-  finalTransaction = '0x' + serializedTx.toString('hex')
+    finalTransaction = '0x' + serializedTx.toString('hex')
 
-  web3.eth.sendRawTransaction(finalTransaction, (error, hash) => {
-    if (!error) {
-      console.log('Contract creation tx: ' + hash);
-      return hash;
-    }
-    else {
-      console.log(error);
-      return false;
-    }
-  });
+    web3.eth.sendRawTransaction(finalTransaction, (error, hash) => {
+      if (!error) {
+        console.log('Contract creation tx: ' + hash);
+        resolve(hash);
+      }
+      else {
+        console.log(error);
+        reject(error);
+      }
+    });
+  })
 }
 
 function getGasPrice() {
